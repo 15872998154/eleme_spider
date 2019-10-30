@@ -28,11 +28,11 @@ new_cookie = ';'.join(res.request.headers['Cookie'].split(";")[:-1]) + '; ' + re
 # restaurant_url1 = 'https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash=wt3me1tzxph6&latitude=30.507612&limit=24&longitude=114.397851&offset=0&restaurant_category_ids%5B%5D=-100&restaurant_category_ids%5B%5D=207&restaurant_category_ids%5B%5D=220&restaurant_category_ids%5B%5D=260&restaurant_category_ids%5B%5D=233&restaurant_category_ids%5B%5D=-102&restaurant_category_ids%5B%5D=-103&restaurant_category_ids%5B%5D=-104&restaurant_category_ids%5B%5D=-105&restaurant_category_ids%5B%5D=-107&restaurant_category_ids%5B%5D=-106&'
 
 headers['Cookie'] = new_cookie
+print(headers)
 
 restaurant_url1 = 'https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash=wt3me1tzxph6&latitude=30.507612&limit=24&longitude=114.397851&offset=24&restaurant_category_ids%5B%5D=-100&restaurant_category_ids%5B%5D=207&restaurant_category_ids%5B%5D=220&restaurant_category_ids%5B%5D=260&restaurant_category_ids%5B%5D=233&restaurant_category_ids%5B%5D=-102&restaurant_category_ids%5B%5D=-103&restaurant_category_ids%5B%5D=-104&restaurant_category_ids%5B%5D=-105&restaurant_category_ids%5B%5D=-107&restaurant_category_ids%5B%5D=-106&'
 res = requests.get(restaurant_url1, headers = headers)
 restaurant_set = json.loads(res.text)
-print(restaurant_set[0]['name'])
 
 for i in range(len(restaurant_set)): 
 	print(restaurant_set[i]['name'])

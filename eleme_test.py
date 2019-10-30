@@ -2,6 +2,8 @@ import requests
 import json
 from mongo_utils import MongoHelp
 from redis_utils import RedisHelp
+import time 
+import random
 
 class WuhanShopSpider:
 	def __init__(self, latitude = "", longitude = "", cookie = ""):
@@ -24,61 +26,75 @@ class WuhanShopSpider:
 			"TE": "Trailers",
 		} 
 
-	def get_shop_info(self):
-		restaurant_url = 'https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash=wt3me1tzxph6&latitude={}&limit=24&longitude={}&offset=0&restaurant_category_ids%5B%5D=-100&restaurant_category_ids%5B%5D=207&restaurant_category_ids%5B%5D=220&restaurant_category_ids%5B%5D=260&restaurant_category_ids%5B%5D=233&restaurant_category_ids%5B%5D=-102&restaurant_category_ids%5B%5D=-103&restaurant_category_ids%5B%5D=-104&restaurant_category_ids%5B%5D=-105&restaurant_category_ids%5B%5D=-107&restaurant_category_ids%5B%5D=-106&'.format(self.latitude, self.longitude)
-		res = requests.get(url = restaurant_url, headers = self.headers)
-		print(res.request.headers)
-		print(res.headers)
-		#parse data
-		restaurant_set = json.loads(res.text)
-		for i in range(len(restaurant_set)): 
-			restaurant_id = restaurant_set[i]['id']
+	def save_shop_info(self):
+		"""
+		请求拿到Json数据后，redis判重，存储至mongo
+		"""
+
+		offset_set = [i for i in range(0, 500, 24)]
+		for offset in offset_set:
+			restaurant_url = 'https://www.ele.me/restapi/shopping/restaurants?extras%5B%5D=activities&geohash=wt3me1tzxph6&latitude={}&limit=24&longitude={}&offset={}&restaurant_category_ids%5B%5D=-100&restaurant_category_ids%5B%5D=207&restaurant_category_ids%5B%5D=220&restaurant_category_ids%5B%5D=260&restaurant_category_ids%5B%5D=233&restaurant_category_ids%5B%5D=-102&restaurant_category_ids%5B%5D=-103&restaurant_category_ids%5B%5D=-104&restaurant_category_ids%5B%5D=-105&restaurant_category_ids%5B%5D=-107&restaurant_category_ids%5B%5D=-106&'.format(self.latitude, self.longitude, offset)
+			res = requests.get(url = restaurant_url, headers = self.headers)
 			
-			#判断该店铺信息是否已经在数据库中
-			# if redis_handle.is_member(restaurant_id):
-			# 	print("continue")
-			# 	continue
-			
-			restaurant_name = restaurant_set[i]['name']
-			restaurant_image_path = restaurant_set[i]['image_path'] #img path
-			# restaurant_image_path = restaurant_set[i]['image_path'] #img path
-			restaurant_opening_hours = ','.join(restaurant_set[i]['opening_hours'])
-			restaurant_flavors = ','.join( [flavor['name'] for flavor in restaurant_set[i]['flavors']] )
-			restaurant_rating = restaurant_set[i]['rating'] #综合评价
-			restaurant_latitude = restaurant_set[i]['latitude']
-			restaurant_longitude = restaurant_set[i]['longitude']
-			restaurant_recent_order_num = restaurant_set[i]['recent_order_num']
-			restaurant_promotion_info = restaurant_set[i]['promotion_info']
+			#解析出服务端设置的cookie
+			receive_cookie = str(res.headers['Set-Cookie'].split(";")[0])
+			#拼凑新的cookie
+			new_cookie = ';'.join(res.request.headers['Cookie'].split(";")[:-1]) + '; ' + receive_cookie
+			#设置头部,下一次请求带上该头部信息
+			self.headers['Cookie'] = new_cookie
 
-			# document = {}
-			# document['restaurant_id'] = restaurant_id
-			# document['restaurant_name'] = restaurant_name
-			# document['restaurant_image_path'] = restaurant_image_path
-			# document['restaurant_opening_hours'] = restaurant_opening_hours
-			# document['restaurant_flavors'] = restaurant_flavors
-			# document['restaurant_rating'] = restaurant_rating
-			# document['restaurant_latitude'] = restaurant_latitude
-			# document['restaurant_longitude'] = restaurant_longitude
-			# document['restaurant_recent_order_num'] = restaurant_recent_order_num
-			# document['restaurant_promotion_info'] = restaurant_promotion_info
-			
-			# #存储文档至mongodb
-			# mongo_handle.insert(document)
+			restaurant_set = json.loads(res.text)
+			for i in range(len(restaurant_set)): 
+				restaurant_id = restaurant_set[i]['id']
+				
+				# 判断该店铺信息是否已经在数据库中
+				if self.redis_handle.is_member(restaurant_id):
+					print("continue")
+					continue
+				
+				#从json中解析数据
+				restaurant_name = restaurant_set[i]['name']
+				restaurant_image_path = restaurant_set[i]['image_path'] #img path
+				restaurant_business_info = restaurant_set[i]['business_info'] #img path
+				restaurant_opening_hours = ','.join(restaurant_set[i]['opening_hours'])
+				restaurant_flavors = ','.join( [flavor['name'] for flavor in restaurant_set[i]['flavors']] )
+				restaurant_rating = restaurant_set[i]['rating'] #综合评价
+				restaurant_latitude = restaurant_set[i]['latitude']
+				restaurant_longitude = restaurant_set[i]['longitude']
+				restaurant_recent_order_num = restaurant_set[i]['recent_order_num']
+				restaurant_promotion_info = restaurant_set[i]['promotion_info']
 
-			# #将该店铺ID保存至redis中，表示该店铺信息已经在Mongo中
-			# redis_handle.add_set_data(restaurant_id)
+				#存储文档至mongodb
+				document = {}
+				document['restaurant_id'] = restaurant_id
+				document['restaurant_name'] = restaurant_name
+				document['restaurant_image_path'] = restaurant_image_path
+				document['restaurant_business_info'] = restaurant_business_info
+				document['restaurant_opening_hours'] = restaurant_opening_hours
+				document['restaurant_flavors'] = restaurant_flavors
+				document['restaurant_rating'] = restaurant_rating
+				document['restaurant_latitude'] = restaurant_latitude
+				document['restaurant_longitude'] = restaurant_longitude
+				document['restaurant_recent_order_num'] = restaurant_recent_order_num
+				document['restaurant_promotion_info'] = restaurant_promotion_info
+				self.mongo_handle.insert(document)
 
-			#log
-			print(restaurant_id)
-			print(restaurant_name)
-			print(restaurant_image_path)
-			print(restaurant_opening_hours)
-			print(restaurant_flavors)
-			print(restaurant_rating)
-			print(restaurant_latitude)
-			print(restaurant_longitude)
-			print(restaurant_recent_order_num)
-			print(restaurant_promotion_info)
-			print("==" * 20)
+				#将该店铺ID保存至redis中，表示该店铺信息已经在Mongo中
+				self.redis_handle.add_set_data(restaurant_id)
 
-WuhanShopSpider().get_shop_info()
+				#日志
+				print(restaurant_id)
+				print(restaurant_name)
+				print(restaurant_image_path)
+				print(restaurant_business_info)
+				print(restaurant_opening_hours)
+				print(restaurant_flavors)
+				print(restaurant_rating)
+				print(restaurant_latitude)
+				print(restaurant_longitude)
+				print(restaurant_recent_order_num)
+				print(restaurant_promotion_info)
+				print("==" * 20)
+			time.sleep(random.randint(6,8))
+#12123
+WuhanShopSpider().save_shop_info()
