@@ -4,13 +4,14 @@ from mongo_utils import MongoHelp
 from redis_utils import RedisHelp
 import time 
 import random
+from settings import location
 
 class WuhanShopSpider:
-	def __init__(self, latitude = "", longitude = "", cookie = ""):
+	def __init__(self, longitude = "", latitude = "", cookie = ""):
 		self.mongo_handle = MongoHelp()  
 		self.redis_handle = RedisHelp()
-		self.latitude = "30.507612"
-		self.longitude = "114.397851"
+		self.latitude = latitude  	#"30.507612"
+		self.longitude = longitude	#"114.397851"
 		self.cookie = "ubt_ssid=9iojnt64586grmdmmid6u14xz8uha0y6_2019-10-28; perf_ssid=ukns9lpxpgld7e0gva9fs7jj6s7zjnn8_2019-10-28; cna=pNgpFtGYmVkCAXWINNuscU5A; isg=BPT0Jn6YFZGoHoHduXkRFygoxrumZTN8FSLjHo5WN3-t-ZJDs9x1R8v4efGEGlAP; l=dBNA1Nw7q3BNwf1iBOfNcuIRXMbt2QdVhkPzw4ZI6ICP_x5OJCROWZQrer8pCn1Vns19W3u2coLyBo8FZz1L3taNr6ZFm7KiUp8h.; _utrace=ae4192682af2b15d9220c8adcc16388e_2019-10-28; ut_ubt_ssid=pff7h1w3prevpufv4t7zxc6xq5byeq8k_2019-10-28; UTUSER=143389539; track_id=1572249249|386106bf620a320bb1fecbbf6e4f072903fc2dcedcf2f262c8|06c6292029cdb83978690e08436ba108; USERID=143389539; SID=c1Mkb0wH3jyP7pcqCHFuY05GVVlyhwSbVjkg; ZDS=1.0|1572249249|DUrRByPW7TytTSZ7SgrkVrWqxe5eUlf+neGA4T56HDLNFb/MwOu05sozg9ItWpG2; tzyy=27caefd5592bb0ca84c0c1a42b6da956; pizza73686f7070696e67=aKonJFn5Q5TBxydFSWJGpiBmhOWjFOVmBOjsZD1Vum7pYBvm9S_Rrqar8J759t3m"
 		self.headers = {
 			"Host": "www.ele.me",
@@ -28,7 +29,7 @@ class WuhanShopSpider:
 
 	def save_shop_info(self):
 		"""
-		请求拿到Json数据后，redis判重，存储至mongo
+		请求获取Json数据，redis判重，存储至mongo
 		"""
 
 		offset_set = [i for i in range(0, 500, 24)]
@@ -46,14 +47,15 @@ class WuhanShopSpider:
 			restaurant_set = json.loads(res.text)
 			for i in range(len(restaurant_set)): 
 				restaurant_id = restaurant_set[i]['id']
+				restaurant_name = restaurant_set[i]['name']
 				
-				# 判断该店铺信息是否已经在数据库中
-				if self.redis_handle.is_member(restaurant_id):
+				# 该店铺信息已经在数据库中
+				if self.redis_handle.is_member(restaurant_id + restaurant_name):
 					print("continue")
 					continue
 				
 				#从json中解析数据
-				restaurant_name = restaurant_set[i]['name']
+				
 				restaurant_image_path = restaurant_set[i]['image_path'] #img path
 				restaurant_business_info = restaurant_set[i]['business_info'] #img path
 				restaurant_opening_hours = ','.join(restaurant_set[i]['opening_hours'])
@@ -80,7 +82,7 @@ class WuhanShopSpider:
 				self.mongo_handle.insert(document)
 
 				#将该店铺ID保存至redis中，表示该店铺信息已经在Mongo中
-				self.redis_handle.add_set_data(restaurant_id)
+				self.redis_handle.add_set_data(restaurant_id + restaurant_name)
 
 				#日志
 				print(restaurant_id)
@@ -96,5 +98,6 @@ class WuhanShopSpider:
 				print(restaurant_promotion_info)
 				print("==" * 20)
 			time.sleep(random.randint(6,8))
-#12123
-WuhanShopSpider().save_shop_info()
+
+
+WuhanShopSpider(location[0][0], location[0][1]).save_shop_info()

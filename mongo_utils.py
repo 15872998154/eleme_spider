@@ -2,7 +2,9 @@ from pymongo import MongoClient
 from settings import MONGO_HOST,MONGO_PORT, MONGO_DB_NAME, MONGO_COLLECTION_NAME
 
 class MongoHelp(object):
-    """mongodb增删改查的操作"""
+    """
+    mongodb增删改查的操作
+    """
     client = MongoClient(host = MONGO_HOST, port = 27017)
     col = client[MONGO_DB_NAME][MONGO_COLLECTION_NAME]
 
@@ -61,5 +63,8 @@ class MongoHelp(object):
             ret = cls.col.delete_many(data)  # 删除全部
             return ret
 
-# MongoHelp().insert({"test4":"chilly4"})
+# db.getCollection('wuhan').aggregate([
+#     { $group: { _id : '$restaurant_name', count: { $sum : 1 } } },
+#     { $match: { count: { $gt : 1} } }
+# ])
 
